@@ -485,7 +485,7 @@ $SKPOLY
   9
 $TDCREATE
  40
-2461266.151238426
+2461266.1545833335
   9
 $TDUCREATE
  40
@@ -493,7 +493,7 @@ $TDUCREATE
   9
 $TDUPDATE
  40
-2461266.151238426
+2461266.1545833335
   9
 $TDUUPDATE
  40
@@ -545,7 +545,7 @@ $SPLINESEGS
   9
 $HANDSEED
   5
-44B
+455
   9
 $SURFTAB1
  70
@@ -929,7 +929,7 @@ $FINGERPRINTGUID
   9
 $VERSIONGUID
   2
-{36BB359B-CC53-4A58-AEAB-0B2275C0D1F1}
+{22C1A4ED-D8FC-4B94-84CE-E55222751EF8}
   9
 $EXTNAMES
 290
@@ -3447,13 +3447,15 @@ AcDbCircle
   0
 LINE
   5
-43D
+44B
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbLine
  10
@@ -3471,13 +3473,15 @@ AcDbLine
   0
 LINE
   5
-43E
+44C
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbLine
  10
@@ -3495,13 +3499,15 @@ AcDbLine
   0
 LINE
   5
-43F
+44D
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbLine
  10
@@ -3519,13 +3525,15 @@ AcDbLine
   0
 ARC
   5
-440
+44E
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3545,13 +3553,15 @@ AcDbArc
   0
 ARC
   5
-441
+44F
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3571,13 +3581,15 @@ AcDbArc
   0
 CIRCLE
   5
-442
+450
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3591,13 +3603,15 @@ AcDbCircle
   0
 CIRCLE
   5
-443
+451
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3611,13 +3625,15 @@ AcDbCircle
   0
 CIRCLE
   5
-444
+452
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3631,13 +3647,15 @@ AcDbCircle
   0
 CIRCLE
   5
-445
+453
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -3651,13 +3669,15 @@ AcDbCircle
   0
 CIRCLE
   5
-446
+454
 330
 3EC
 100
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -7617,7 +7637,7 @@ DictionaryVariables
 280
 0
   1
-1.4.4 @ 2026-08-13T00:37:47.353932+00:00
+1.4.4 @ 2026-08-13T00:42:36.258262+00:00
   0
 ENDSEC
   0

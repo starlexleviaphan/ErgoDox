@@ -485,7 +485,7 @@ $SKPOLY
   9
 $TDCREATE
  40
-2461266.151238426
+2461266.1545833335
   9
 $TDUCREATE
  40
@@ -493,7 +493,7 @@ $TDUCREATE
   9
 $TDUPDATE
  40
-2461266.151238426
+2461266.1545833335
   9
 $TDUUPDATE
  40
@@ -545,7 +545,7 @@ $SPLINESEGS
   9
 $HANDSEED
   5
-4C8
+4D0
   9
 $SURFTAB1
  70
@@ -929,7 +929,7 @@ $FINGERPRINTGUID
   9
 $VERSIONGUID
   2
-{5ECBA706-2AE2-45B2-87CE-AEFDC3C3C3D0}
+{4965C514-53A5-4CAA-8B47-D5641B2E625B}
   9
 $EXTNAMES
 290
@@ -5212,6 +5212,8 @@ LINE
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbLine
  10
@@ -5227,54 +5229,6 @@ AcDbLine
  31
 0.0
   0
-LINE
-  5
-4BD
-330
-46B
-100
-AcDbEntity
-  8
-0
-100
-AcDbLine
- 10
-20.0
- 20
-52.268
- 30
-0.0
- 11
-20.0
- 21
-151.8211
- 31
-0.0
-  0
-LINE
-  5
-4BE
-330
-46B
-100
-AcDbEntity
-  8
-0
-100
-AcDbLine
- 10
-181.0868
- 20
-151.8211
- 30
-0.0
- 11
-181.0868
- 21
-97.8093
- 31
-0.0
-  0
 ARC
   5
 4BF
@@ -5284,6 +5238,8 @@ ARC
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -5310,6 +5266,8 @@ ARC
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -5336,6 +5294,8 @@ CIRCLE
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -5356,6 +5316,8 @@ CIRCLE
 AcDbEntity
   8
 0
+ 62
+1
 100
 AcDbCircle
  10
@@ -5376,6 +5338,208 @@ CIRCLE
 AcDbEntity
   8
 0
+ 62
+1
+100
+AcDbCircle
+ 10
+174.8166
+ 20
+152.5572
+ 30
+0.0
+ 40
+1.5
+  0
+LINE
+  5
+4C8
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbLine
+ 10
+27.0
+ 20
+158.8211
+ 30
+0.0
+ 11
+174.0868
+ 21
+158.8211
+ 31
+0.0
+  0
+LINE
+  5
+4C9
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbLine
+ 10
+20.0
+ 20
+52.268
+ 30
+0.0
+ 11
+20.0
+ 21
+151.8211
+ 31
+0.0
+  0
+LINE
+  5
+4CA
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbLine
+ 10
+181.0868
+ 20
+151.8211
+ 30
+0.0
+ 11
+181.0868
+ 21
+97.8093
+ 31
+0.0
+  0
+ARC
+  5
+4CB
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbCircle
+ 10
+27.0
+ 20
+151.8211
+ 30
+0.0
+ 40
+7.0
+100
+AcDbArc
+ 50
+90.0
+ 51
+180.0
+  0
+ARC
+  5
+4CC
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbCircle
+ 10
+174.0868
+ 20
+151.8211
+ 30
+0.0
+ 40
+7.0
+100
+AcDbArc
+ 50
+0.0
+ 51
+90.0
+  0
+CIRCLE
+  5
+4CD
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbCircle
+ 10
+26.2639
+ 20
+152.5572
+ 30
+0.0
+ 40
+1.5
+  0
+CIRCLE
+  5
+4CE
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
+100
+AcDbCircle
+ 10
+121.3333
+ 20
+155.9116
+ 30
+0.0
+ 40
+1.5
+  0
+CIRCLE
+  5
+4CF
+330
+46B
+100
+AcDbEntity
+  8
+0
+ 62
+1
 100
 AcDbCircle
  10
@@ -9335,7 +9499,7 @@ DictionaryVariables
 280
 0
   1
-1.4.4 @ 2026-08-13T00:37:47.169802+00:00
+1.4.4 @ 2026-08-13T00:42:36.145818+00:00
   0
 ENDSEC
   0
