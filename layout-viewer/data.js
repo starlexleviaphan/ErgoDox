@@ -14658,12 +14658,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "QK_DYNAMIC_TAPPING_TERM_PRINT",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "TT Print",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "TT Print",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 30,
@@ -14672,12 +14672,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "LED_LEVEL",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "LED",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "LED",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 31,
@@ -15188,12 +15188,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "QK_DYNAMIC_TAPPING_TERM_UP",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "TT +",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "TT +",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 67,
@@ -15202,12 +15202,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "QK_DYNAMIC_TAPPING_TERM_DOWN",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "TT -",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "TT -",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 68,
