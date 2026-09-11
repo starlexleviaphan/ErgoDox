@@ -74,14 +74,13 @@ layers.forEach(l => {
 // 3. Firmware Configuration Checks (ergodox.conf)
 console.log('\n⚙️ Checking ergodox.conf:');
 assert(/CONFIG_ZMK_MOUSE\s*=\s*y/.test(confContent), 'CONFIG_ZMK_MOUSE=y enabled for mouse keys');
-assert(/CONFIG_ZMK_BEHAVIOR_DYNAMIC_MACRO\s*=\s*y/.test(confContent), 'CONFIG_ZMK_BEHAVIOR_DYNAMIC_MACRO=y enabled');
 assert(/CONFIG_ZMK_STUDIO_MAX_LAYERS\s*=\s*16/.test(confContent), 'CONFIG_ZMK_STUDIO_MAX_LAYERS=16 configured');
 assert(/CONFIG_BT_CTLR_TX_PWR_PLUS_8\s*=\s*y/.test(confContent), 'CONFIG_BT_CTLR_TX_PWR_PLUS_8=y for maximum wireless signal stability');
 assert(/CONFIG_ZMK_SLEEP\s*=\s*y/.test(confContent), 'CONFIG_ZMK_SLEEP=y for battery conservation');
 
 // 4. West Manifest Check (west.yml)
 console.log('\n📦 Checking west.yml:');
-assert(westContent.includes('calvinhenderson'), 'west.yml uses calvinhenderson fork for dynamic macros (PR #2678)');
+assert(westContent.includes('zmkfirmware'), 'west.yml uses official zmkfirmware repository for rock-solid stability');
 
 // 5. Deep Matrix Mapping Verification (ergodox.keymap vs data.js)
 console.log('\n🔬 Cross-Checking Matrix Key Mapping:');
