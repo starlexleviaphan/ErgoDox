@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WORK-TYPE-GAME: Интерактивный гид по раскладке ErgoDox</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body data-theme="light">
+  <!-- Header Bar -->
+  <header>
+    <div class="brand-section">
+      <div class="logo-badge">EZ</div>
+      <div class="title-group">
+        <h1>WORK-TYPE-GAME</h1>
+        <div class="subtitle">Интерактивная карта слоев ErgoDox • Oryx Reference ➔ ZMK Port</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <input type="text" id="search-input" class="search-input" placeholder="Поиск клавиши..." />
+      <button id="play-tour-btn" class="btn btn-primary">▶ Запустить тур (53 шага)</button>
+      <button id="settings-btn" class="btn" title="Настройки прошивки">⚙️ Настройки</button>
+      <button id="theme-toggle-btn" class="btn">🌙 Тёмная</button>
+    </div>
+  </header>
+
+  <!-- Layer Navigation Bar -->
+  <nav class="layer-nav-bar" id="layer-tabs"></nav>
+
+  <!-- Main Canvas Stage -->
+  <main>
+    <div class="keyboard-container">
+      <svg id="keyboard-canvas" viewBox="0 0 1150 420" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </main>
+
+  <!-- Floating Tour Banner -->
+  <div class="tour-banner" id="tour-banner">
+    <div class="tour-header">
+      <span class="tour-step-badge" id="tour-step-badge">Шаг 1 из 53</span>
+      <h3 class="tour-title" id="tour-title">Название шага</h3>
+      <button class="close-btn" id="tour-close-btn" title="Закрыть тур (Esc)">&times;</button>
+    </div>
+    <div class="tour-content" id="tour-content">
+      <!-- Dynamic Step Text -->
+    </div>
+    <div class="tour-actions">
+      <span style="font-size: 11px; color: var(--text-muted);">Используйте стрелки ← / → на клавиатуре для перехода</span>
+      <div class="tour-btn-group">
+        <button id="tour-prev-btn" class="btn">◀ Назад</button>
+        <button id="tour-next-btn" class="btn btn-primary">Вперед ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Inspector Drawer -->
+  <aside class="inspector-drawer" id="inspector-drawer">
+    <div class="drawer-header">
+      <h3 id="drawer-key-title">Свойства клавиши</h3>
+      <button class="close-btn" id="close-inspector-btn">&times;</button>
+    </div>
+
+    <div class="inspector-field">
+      <div class="field-label">Тип клавиши</div>
+      <div class="field-value" id="insp-key-type">NORMAL</div>
+    </div>
+
+    <div class="inspector-field">
+      <div class="field-label">Действие при тапе (Tap Action)</div>
+      <div class="field-value" id="insp-tap-label">—</div>
+      <div class="field-code" id="insp-tap-code">KC_NO</div>
+    </div>
+
+    <div class="inspector-field">
+      <div class="field-label">Действие при удержании (Hold / Mod / Layer)</div>
+      <div class="field-value" id="insp-hold-label">—</div>
+      <div class="field-code" id="insp-hold-code">—</div>
+    </div>
+
+    <div class="inspector-field">
+      <div class="field-label">Пользовательский ярлык (Oryx Label)</div>
+      <div class="field-value" id="insp-custom-label">—</div>
+    </div>
+
+    <div class="inspector-field" style="margin-top: 20px;">
+      <div class="field-label">Эквивалент в ZMK (.keymap)</div>
+      <div class="field-code" id="insp-zmk-code">&kp ...</div>
+    </div>
+  </aside>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Нестандартные параметры прошивки (QMK / Oryx Config)</h3>
+        <button class="close-btn" id="close-settings-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <table class="settings-table">
+          <thead>
+            <tr>
+              <th>Параметр</th>
+              <th>Значение в конфиге</th>
+              <th>Дефолт</th>
+              <th>Пояснение логики</th>
+            </tr>
+          </thead>
+          <tbody id="settings-table-body">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Legend Bar -->
+  <footer class="legend-bar">
+    <div class="legend-items">
+      <div class="legend-item">
+        <div class="legend-box box-normal"></div>
+        <span>Обычная клавиша</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box box-mod"></div>
+        <span>Mod-Tap / Layer-Tap (удержание)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box box-layer"></div>
+        <span>Layer Toggle / OSL (переключение)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box box-trans"></div>
+        <span>Прозрачная клавиша (▽)</span>
+      </div>
+    </div>
+    <div>Нажмите на любую клавишу для инспекции и ZMK кода</div>
+  </footer>
+
+  <script src="data.js?v=10"></script>
+  <script src="app.js?v=10"></script>
+</body>
+</html>
