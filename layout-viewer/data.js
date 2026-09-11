@@ -4238,12 +4238,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "AS_UP",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "AS Up",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "AS Up",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 67,
@@ -4252,12 +4252,12 @@ window.KEYBOARD_DATA = {
         "w": 1,
         "h": 1,
         "r": 0,
-        "tapCode": "AS_DOWN",
+        "tapCode": "KC_TRANSPARENT",
         "holdCode": "",
-        "tapText": "AS Down",
+        "tapText": "▽",
         "subText": "",
-        "customLabel": "AS Down",
-        "keyType": "normal"
+        "customLabel": "▽",
+        "keyType": "transparent"
       },
       {
         "idx": 68,
