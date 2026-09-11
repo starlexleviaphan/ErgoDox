@@ -74,7 +74,7 @@ layers.forEach(l => {
 // 3. Firmware Configuration Checks (ergodox.conf)
 console.log('\n⚙️ Checking ergodox.conf:');
 assert(/CONFIG_ZMK_MOUSE\s*=\s*y/.test(confContent), 'CONFIG_ZMK_MOUSE=y enabled for mouse keys');
-assert(/CONFIG_ZMK_STUDIO_MAX_LAYERS\s*=\s*16/.test(confContent), 'CONFIG_ZMK_STUDIO_MAX_LAYERS=16 configured');
+assert(/CONFIG_ZMK_STUDIO\s*=\s*y/.test(confContent), 'CONFIG_ZMK_STUDIO=y configured');
 assert(/CONFIG_BT_CTLR_TX_PWR_PLUS_8\s*=\s*y/.test(confContent), 'CONFIG_BT_CTLR_TX_PWR_PLUS_8=y for maximum wireless signal stability');
 assert(/CONFIG_ZMK_SLEEP\s*=\s*y/.test(confContent), 'CONFIG_ZMK_SLEEP=y for battery conservation');
 
