@@ -100,7 +100,7 @@ const ergodoxKeymapOrder = [
 ];
 
 assert(ergodoxKeymapOrder.length === 76, 'Matrix mapping order has exactly 76 physical positions');
-assert(dtsiContent.includes('RC(4, 17) RC(4, 15) RC(3, 16)'), 'Hardware matrix transform matches symmetric thumb order [74(2U), 75(2U), 72(1U)]');
+assert(dtsiContent.includes('RC(4, 15) RC(3, 16) RC(4, 17)'), 'Hardware matrix transform matches physical thumb order [74(Enter 2U), 75(Space 2U), 72(TG NPAD 1U)]');
 
 // Verify all layers exist in both and match titles
 layers.forEach(l => {
