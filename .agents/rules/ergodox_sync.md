@@ -37,3 +37,4 @@ Whenever modifying any layout file:
 2. Confirm there are no unmapped tokens (`NONE`, `OSM`, `undefined`).
 3. Bump the cache buster in `layout-viewer/index.html` (e.g. `?v=N+1`).
 4. Re-verify the updated layer visually using the browser subagent if relevant.
+5. **Firmware Delivery**: Upon finishing layout modifications, trigger the build pipeline (`node .agents/skills/firmware-critic/scripts/build.js`) to ensure ready-to-flash `.uf2` binaries are downloaded directly into the repository's `firmware/` folder (`firmware/ergodox_dongle-nice_nano_v2-zmk.uf2`, etc.).

@@ -8,6 +8,7 @@ const confPath = path.join(repoRoot, 'zmk-config/config/ergodox.conf');
 const viewerDataPath = path.join(repoRoot, 'layout-viewer/data.js');
 const westPath = path.join(repoRoot, 'zmk-config/config/west.yml');
 const docsLayersPath = path.join(repoRoot, 'docs/layout/02_LAYERS.md');
+const dtsiPath = path.join(repoRoot, 'zmk-config/boards/shields/ergodox/ergodox.dtsi');
 
 console.log('=====================================================');
 console.log('🔍 FIRMWARE CRITIC & AUDITOR: DEEP VERIFICATION');
@@ -35,11 +36,13 @@ assert(fs.existsSync(confPath), `Config file exists at ${confPath}`);
 assert(fs.existsSync(viewerDataPath), `Viewer data file exists at ${viewerDataPath}`);
 assert(fs.existsSync(westPath), `West manifest exists at ${westPath}`);
 assert(fs.existsSync(docsLayersPath), `Layers doc exists at ${docsLayersPath}`);
+assert(fs.existsSync(dtsiPath), `Hardware dtsi exists at ${dtsiPath}`);
 
 const keymapContent = fs.readFileSync(keymapPath, 'utf8');
 const confContent = fs.readFileSync(confPath, 'utf8');
 const westContent = fs.readFileSync(westPath, 'utf8');
 const docsLayersContent = fs.readFileSync(docsLayersPath, 'utf8');
+const dtsiContent = fs.readFileSync(dtsiPath, 'utf8');
 
 // Load layout viewer data
 global.window = {};
@@ -97,6 +100,7 @@ const ergodoxKeymapOrder = [
 ];
 
 assert(ergodoxKeymapOrder.length === 76, 'Matrix mapping order has exactly 76 physical positions');
+assert(dtsiContent.includes('RC(4, 17) RC(4, 15) RC(3, 16)'), 'Hardware matrix transform matches symmetric thumb order [74(2U), 75(2U), 72(1U)]');
 
 // Verify all layers exist in both and match titles
 layers.forEach(l => {
@@ -118,17 +122,18 @@ if (l0) {
   assert(l0.block.includes('&hmr RCTRL K'), 'L0 (WORK): Home row K has &hmr RCTRL');
   assert(l0.block.includes('&hmr RSHFT L'), 'L0 (WORK): Home row L has &hmr RSHFT');
   assert(l0.block.includes('&hmr RALT SEMI'), 'L0 (WORK): Home row ; has &hmr RALT');
+  assert(l0.block.includes('&type_shift RSHFT 3'), 'L0 (WORK): Key 64 uses &type_shift RSHFT 3 (Tap=TO 3, Hold=RSHFT)');
 }
 
-// Layer 3: TYPE (Clean Writer Mode)
+// Layer 3: TYPE (Clean Writer Mode - Full Thumbs and Service Keys, Pure Letters)
 const l3 = layers.find(l => l.index === 3);
 if (l3) {
   assert(!l3.block.includes('&hml') && !l3.block.includes('&hmr'), 'L3 (TYPE): HRM modifiers disabled for zero latency typing');
-  assert(l3.block.includes('&caps_word'), 'L3 (TYPE): Contains &caps_word');
-  assert(l3.block.includes('&lt 0 RSHFT') || l3.block.includes('&to 0') || l3.block.includes('&kp RSHFT'), 'L3 (TYPE): Has escape/return to WORK layer');
-  // Check transparent keys
-  const transCount = (l3.block.match(/&trans/g) || []).length;
-  assert(transCount >= 10, `L3 (TYPE): Uses transparent keys (&trans count = ${transCount})`);
+  assert(l3.block.includes('&kp A') && l3.block.includes('&kp S') && l3.block.includes('&kp D') && l3.block.includes('&kp F'), 'L3 (TYPE): Pure left letters A, S, D, F');
+  assert(l3.block.includes('&kp J') && l3.block.includes('&kp K') && l3.block.includes('&kp L') && l3.block.includes('&kp SEMI'), 'L3 (TYPE): Pure right letters J, K, L, ;');
+  assert(l3.block.includes('&type_shift RSHFT 0'), 'L3 (TYPE): Has return to WORK layer via &type_shift RSHFT 0');
+  assert(l3.block.includes('&lt 5 SPACE') && l3.block.includes('&lt 7 BSPC'), 'L3 (TYPE): Left thumb cluster matches WORK (Space, Bksp)');
+  assert(l3.block.includes('&lt 11 RET') && l3.block.includes('&lt 4 SPACE'), 'L3 (TYPE): Right thumb cluster matches WORK (Enter, Space)');
 }
 
 // Layer 4: SYM1 (Language Switchers Ctrl+1/2/3)
