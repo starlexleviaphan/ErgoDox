@@ -187,7 +187,54 @@ if (combosCheck) {
   assert(!keymapContent.includes('&bootloader'), 'Combos do not contain software bootloader');
 }
 
-// 6. Print Summary
+// 6. Keymap Editor (nickcoutsos) info.json Compatibility Audit
+console.log('\n🎨 Checking Keymap Editor info.json & ergodox.json:');
+const infoJsonPaths = [
+  path.join(repoRoot, 'zmk-config/config/info.json'),
+  path.join(repoRoot, 'zmk-config/config/ergodox.json'),
+  path.join(repoRoot, 'zmk-config/boards/shields/ergodox/info.json'),
+  path.join(repoRoot, 'zmk-config/boards/shields/ergodox/ergodox.json')
+];
+
+function validateKeymapEditorJson(filePath) {
+  if (!fs.existsSync(filePath)) return [`File missing: ${filePath}`];
+  const info = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const errs = [];
+  for (let name in info.layouts || {}) {
+    const layout = info.layouts[name].layout || [];
+    let t = -Infinity;
+    for (let s = 0; s < layout.length; s++) {
+      const r = layout[s].row;
+      if (r !== undefined) {
+        if (r < t) errs.push(`Row index at layouts[${name}].layout[${s}] is not sequential`);
+        else t = r;
+      }
+    }
+    let curRow = 0, lastCol = -Infinity;
+    for (let s = 0; s < layout.length; s++) {
+      const { row: r, col: c } = layout[s];
+      if (r !== undefined && c !== undefined) {
+        if (curRow !== r) {
+          curRow = r;
+          lastCol = -Infinity;
+        }
+        if (c < lastCol) {
+          errs.push(`Column index at layouts[${name}].layout[${s}] is not sequential`);
+        } else {
+          lastCol = c;
+        }
+      }
+    }
+  }
+  return errs;
+}
+
+infoJsonPaths.forEach(p => {
+  const errs = validateKeymapEditorJson(p);
+  assert(errs.length === 0, `Keymap Editor validation for ${path.relative(repoRoot, p)} passed (${errs.length === 0 ? 'zero errors' : errs.join('; ')})`);
+});
+
+// 7. Print Summary
 console.log('\n=====================================================');
 console.log(`AUDIT RESULTS: ${passCount} Checks Passed`);
 if (warnings.length > 0) {
