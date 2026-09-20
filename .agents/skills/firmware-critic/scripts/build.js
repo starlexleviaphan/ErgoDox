@@ -27,7 +27,7 @@ run(`node ${path.join(__dirname, 'audit.js')}`);
 // 2. Commit and push zmk-config if dirty
 console.log('\n[2/5] Checking zmk-config git status...');
 const status = runCapture('git status --porcelain', zmkConfigDir);
-let commitMsg = 'fix: update keymap type_shift and thumb matrix transform';
+let commitMsg = process.argv[2] || 'feat: add synaptics tm-p3125 touchpad shield and 3-peripheral dongle pointing support';
 
 if (status) {
   console.log('Changes detected in zmk-config:');
@@ -44,19 +44,16 @@ if (status) {
 // 3. Wait for GitHub Actions run to start
 console.log('\n[3/5] Waiting for GitHub Actions workflow to start...');
 let runId = null;
-for (let attempt = 1; attempt <= 15; attempt++) {
+const headSha = runCapture('git rev-parse HEAD', zmkConfigDir);
+for (let attempt = 1; attempt <= 20; attempt++) {
   try {
-    const listOutput = runCapture(`gh run list --repo ${targetRepo} -L 1 --json databaseId,status,createdAt,headBranch`);
+    const listOutput = runCapture(`gh run list --repo ${targetRepo} -L 5 --json databaseId,status,createdAt,headBranch,headSha`);
     const runs = JSON.parse(listOutput);
-    if (runs && runs.length > 0) {
-      const latest = runs[0];
-      const ageMs = Date.now() - new Date(latest.createdAt).getTime();
-      // If run started in the last 3 minutes or is in progress / queued
-      if (latest.status === 'in_progress' || latest.status === 'queued' || ageMs < 180000) {
-        runId = latest.databaseId;
-        console.log(`Found active run ID: ${runId} (status: ${latest.status})`);
-        break;
-      }
+    const runForCommit = runs.find(r => r.headSha === headSha);
+    if (runForCommit) {
+      runId = runForCommit.databaseId;
+      console.log(`Found run ID: ${runId} for commit ${headSha.slice(0, 7)} (status: ${runForCommit.status})`);
+      break;
     }
   } catch (err) {
     // retry
