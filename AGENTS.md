@@ -29,3 +29,21 @@
 
 ## Правила репозитория (`.agents/rules/`)
 - `ergodox_sync.md`: Обязательная 100% взаимная синхронизация между `layout-viewer/data.js`, `ergodox.keymap` и `docs/layout/02_LAYERS.md` при любых изменениях раскладки, а также автоматическая сборка и размещение готовых `.uf2` в `firmware/`.
+
+## Интеграция ECC (Everything Context) & Governance Protocol
+
+Проект подключен к системе **ECC** (`--target antigravity`) с привязкой к стекам C/C++ (ZMK firmware, драйверы nRF52840) и JavaScript (интерактивный просмотрщик, сборочные скрипты).
+
+- **Файл конфигурации**: [`ecc-install.json`](file:///c:/Users/Starlex/Documents/GitHub/ErgoDox/ecc-install.json)
+- **Управление состоянием**: [`.agents/ecc-install-state.json`](file:///c:/Users/Starlex/Documents/GitHub/ErgoDox/.agents/ecc-install-state.json)
+- **Установленные компоненты ECC**:
+  - **Правила (`.agents/rules/`)**: `common-*` (code-review, coding-style, security, testing), `cpp-*`, `typescript-*`
+  - **Специализированные агенты (`.agents/agents/`)**: `code-architect`, `code-reviewer`, `build-error-resolver`, `evaluator` и др.
+  - **Пользовательские воркфлоу (`.agents/workflows/`)**: `/build-fix`, `/code-review`, `/checkpoint`, `/aside`, `/plan`
+  - **Навыки ECC (`.agents/skills/`)**: `tdd-workflow`, `verification-loop`, `unified-memory`, `delivery-gate`, `context-budget`
+- **Команды валидации ECC**:
+  ```bash
+  node "C:\Users\Starlex\.gemini\ecc\scripts\doctor.js" --target antigravity
+  node "C:\Users\Starlex\.gemini\ecc\scripts\install-plan.js" --config ecc-install.json --json
+  ```
+
