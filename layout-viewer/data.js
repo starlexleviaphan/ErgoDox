@@ -6601,12 +6601,12 @@ window.KEYBOARD_DATA = {
           "w": 1,
           "h": 1,
           "r": 0,
-          "tapCode": "KC_TRANSPARENT",
+          "tapCode": "KC_F21",
           "holdCode": "",
-          "tapText": "▽",
-          "subText": "",
-          "customLabel": "▽",
-          "keyType": "transparent"
+          "tapText": "MENU",
+          "subText": "F21",
+          "customLabel": "MENU",
+          "keyType": "special"
         },
         {
           "idx": 2,
