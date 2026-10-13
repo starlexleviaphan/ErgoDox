@@ -29,16 +29,20 @@ console.log('\n[2/5] Checking zmk-config git status...');
 const status = runCapture('git status --porcelain', zmkConfigDir);
 let commitMsg = process.argv[2] || 'feat: add synaptics tm-p3125 touchpad shield and 3-peripheral dongle pointing support';
 
-if (status) {
-  console.log('Changes detected in zmk-config:');
-  console.log(status);
-  console.log('Staging and committing in zmk-config...');
-  run('git add -A', zmkConfigDir);
-  run(`git commit -m "${commitMsg}"`, zmkConfigDir);
+const unpushed = runCapture('git log origin/main..HEAD --oneline', zmkConfigDir);
+
+if (status || unpushed) {
+  if (status) {
+    console.log('Changes detected in zmk-config:');
+    console.log(status);
+    console.log('Staging and committing in zmk-config...');
+    run('git add -A', zmkConfigDir);
+    run(`git commit -m "${commitMsg}"`, zmkConfigDir);
+  }
   console.log('Pushing to GitHub (zmk-config-ergodox)...');
   run('git push origin main', zmkConfigDir);
 } else {
-  console.log('zmk-config working tree clean.');
+  console.log('zmk-config working tree clean and up to date.');
 }
 
 // 3. Wait for GitHub Actions run to start
