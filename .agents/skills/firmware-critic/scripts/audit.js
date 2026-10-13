@@ -65,9 +65,9 @@ while ((match = layerRegex.exec(keymapContent)) !== null) {
   layers.push({ index, displayName, tokens, block, rawBindings: bindingsText });
 }
 
-console.log(`\n📦 Discovered Layers in Keymap: ${layers.length} (Expected: 14)`);
-assert(layers.length === 14, `Expected exactly 14 layers in keymap, found ${layers.length}`);
-assert(viewerLayers.length === 14, `Expected exactly 14 layers in viewer data, found ${viewerLayers.length}`);
+console.log(`\n📦 Discovered Layers in Keymap: ${layers.length} (Expected: 15)`);
+assert(layers.length === 15, `Expected exactly 15 layers in keymap, found ${layers.length}`);
+assert(viewerLayers.length === 15, `Expected exactly 15 layers in viewer data, found ${viewerLayers.length}`);
 
 // Check 76 keys per layer
 layers.forEach(l => {
