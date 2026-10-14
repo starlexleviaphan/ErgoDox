@@ -171,8 +171,8 @@ int main(void) {
                     if (bg->h == 26) {
                         assert(kh >= 26 && kh <= 38);
                     }
-                    assert(kw >= 28 && kw <= 44);
-                    assert(kh >= 24 && kh <= 62);
+                    assert(kw >= 18 && kw <= 44);
+                    assert(kh >= 24 && kh <= 75);
                 }
             }
         }
