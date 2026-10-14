@@ -9,8 +9,8 @@ The AI assistant must always ensure 100% mutual consistency between:
 3. **Architecture Documentation**: `docs/layout/02_LAYERS.md`
 
 ## Architecture Invariants
-- **14 Layers**:
-  - `0: WORK`, `1: SWAP`, `2: LNPD`, `3: TYPE`, `4: SYM1`, `5: NRPD`, `6: MOUS`, `7: ARRW`, `8: GAME`, `9: GSWP`, `10: NPAD`, `11: FUN1`, `12: FUN2`, `13: SYM2`.
+- **15 Layers**:
+  - `0: WORK`, `1: SWAP`, `2: LNPD`, `3: TYPE`, `4: SYM1`, `5: NRPD`, `6: MOUS`, `7: ARRW`, `8: GAME`, `9: GSWP`, `10: NPAD`, `11: FUN1`, `12: FUN2`, `13: SYM2`, `14: MENU`.
 - **76 Keys Per Layer**:
   - Matrix binding order follows `ergodox.dtsi` `default_transform` (76 bindings per layer).
 - **Home Row Mods on WORK (0)**:
