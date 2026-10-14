@@ -40,18 +40,37 @@ int main(void) {
     for (int i = 7; i < 13; i++) {
         assert(left_half_geom[i].x + left_half_geom[i].w == left_half_geom[i + 1].x);
     }
-    /* Left half Row 2 zero-gap */
-    for (int i = 14; i < 20; i++) {
+    /* Left half Row 2: keys [14..19] in Cols 0..5 (x=4..154), key [26] is PgDn in Col 6 (x=184) */
+    assert(left_half_geom[14].x == 4);
+    for (int i = 14; i < 19; i++) {
         assert(left_half_geom[i].x + left_half_geom[i].w == left_half_geom[i + 1].x);
     }
-    /* Left half Row 3 zero-gap */
-    for (int i = 21; i < 26; i++) {
+    assert(left_half_geom[19].x + left_half_geom[19].w == left_half_geom[26].x);
+    assert(left_half_geom[26].x + left_half_geom[26].w == 214);
+
+    /* Left half Row 3: key [20] is Shift in Col 0 (x=4), keys [21..25] are Z..B in Cols 1..5 (x=34..154) */
+    assert(left_half_geom[20].x == 4);
+    for (int i = 20; i < 25; i++) {
         assert(left_half_geom[i].x + left_half_geom[i].w == left_half_geom[i + 1].x);
     }
-    /* Left half Row 4 zero-gap */
+    assert(left_half_geom[25].x + left_half_geom[25].w == 184);
+
+    /* Left half Row 4 zero-gap: keys [27..31] in Cols 0..4 (x=4..124) */
+    assert(left_half_geom[27].x == 4);
     for (int i = 27; i < 31; i++) {
         assert(left_half_geom[i].x + left_half_geom[i].w == left_half_geom[i + 1].x);
     }
+    assert(left_half_geom[31].x + left_half_geom[31].w == 154);
+
+    /* Left half vertical column alignments */
+    /* Col 0: `, Enter, -, Shift, Menu */
+    assert(left_half_geom[0].x == 4 && left_half_geom[7].x == 4 && left_half_geom[14].x == 4 &&
+           left_half_geom[20].x == 4 && left_half_geom[27].x == 4);
+    /* Col 1: 1, Q, A, Z, Ins */
+    assert(left_half_geom[1].x == 34 && left_half_geom[8].x == 34 && left_half_geom[15].x == 34 &&
+           left_half_geom[21].x == 34 && left_half_geom[28].x == 34);
+    /* Col 6: [, PgUp, PgDn */
+    assert(left_half_geom[6].x == 184 && left_half_geom[13].x == 184 && left_half_geom[26].x == 184);
 
     /* Left half thumb cluster starts at x >= 216 (gap >= 2px from Row 0-2, >= 32px from Row 4) */
     for (int i = 32; i < 38; i++) {
@@ -98,7 +117,15 @@ int main(void) {
     for (int i = 27; i < 31; i++) {
         assert(right_half_geom[i].x + right_half_geom[i].w == right_half_geom[i + 1].x);
     }
-    assert(right_half_geom[31].x + right_half_geom[31].w == 246);
+    /* Right half vertical column alignments */
+    /* Col 0: ], Hom, End */
+    assert(right_half_geom[0].x == 66 && right_half_geom[7].x == 66 && right_half_geom[20].x == 66);
+    /* Col 1: 6, Y, H, N, SY2 */
+    assert(right_half_geom[1].x == 96 && right_half_geom[8].x == 96 && right_half_geom[14].x == 96 &&
+           right_half_geom[21].x == 96 && right_half_geom[27].x == 96);
+    /* Col 6: =, \, ', TYP */
+    assert(right_half_geom[6].x == 246 && right_half_geom[13].x == 246 && right_half_geom[19].x == 246 &&
+           right_half_geom[26].x == 246);
 
     printf("PASS\n");
     return 0;
