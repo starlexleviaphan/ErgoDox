@@ -128,28 +128,28 @@ int main(void) {
             int cluster_h = max_y - min_y;
 
             int target_w = ZOOM_KEY_WIDTH;
-            if ((cluster_w * target_w) / 29 > 268) {
-                target_w = (268 * 29) / cluster_w;
+            if ((cluster_w * target_w) / 30 > 268) {
+                target_w = (268 * 30) / cluster_w;
             }
-            if (target_w < 29) target_w = 29;
+            if (target_w < 30) target_w = 30;
 
             int target_h = ZOOM_KEY_HEIGHT;
-            if ((cluster_h * target_h) / 26 > 184) {
-                target_h = (184 * 26) / cluster_h;
+            if ((cluster_h * target_h) / 32 > 170) {
+                target_h = (170 * 32) / cluster_h;
             }
-            if (target_h < 26) target_h = 26;
+            if (target_h < 32) target_h = 32;
 
-            int scaled_cluster_w = (cluster_w * target_w) / 29;
-            int scaled_cluster_h = (cluster_h * target_h) / 26;
+            int scaled_cluster_w = (cluster_w * target_w) / 30;
+            int scaled_cluster_h = (cluster_h * target_h) / 32;
 
             int origin_x = (280 - scaled_cluster_w) / 2;
-            int origin_y = 28 + (184 - scaled_cluster_h) / 2;
+            int origin_y = 28 + (172 - scaled_cluster_h) / 2;
 
-            /* Verify origin fits on 280x240 screen within separator lines (y: 27..213) */
+            /* Verify origin fits on 280x240 screen within separator lines (y: 27..202) */
             assert(origin_x >= 0);
             assert(origin_x + scaled_cluster_w <= 280);
             assert(origin_y >= 26);
-            assert(origin_y + scaled_cluster_h <= 214);
+            assert(origin_y + scaled_cluster_h <= 202);
 
             /* Verify all active keys fit within bounds when scaled */
             for (uint8_t i = 0; i < KEYS_PER_HALF; i++) {
@@ -157,19 +157,19 @@ int main(void) {
                     const struct key_geometry *bg = &base_geom[i];
                     int rel_x = bg->x - min_x;
                     int rel_y = bg->y - min_y;
-                    int kx = origin_x + (rel_x * target_w) / 29;
-                    int ky = origin_y + (rel_y * target_h) / 26;
-                    int kw = (bg->w * target_w) / 29;
-                    int kh = (bg->h * target_h) / 26;
+                    int kx = origin_x + (rel_x * target_w) / 30;
+                    int ky = origin_y + (rel_y * target_h) / 32;
+                    int kw = (bg->w * target_w) / 30;
+                    int kh = (bg->h * target_h) / 32;
 
                     assert(kx >= 0 && kx + kw <= 280);
-                    assert(ky >= 26 && ky + kh <= 214);
+                    assert(ky >= 26 && ky + kh <= 202);
                     /* Standard 1u keys scale up to 44x38 px */
-                    if (bg->w == 29) {
-                        assert(kw >= 29 && kw <= 44);
+                    if (bg->w == 30) {
+                        assert(kw >= 30 && kw <= 44);
                     }
-                    if (bg->h == 26) {
-                        assert(kh >= 26 && kh <= 38);
+                    if (bg->h == 32) {
+                        assert(kh >= 32 && kh <= 38);
                     }
                     assert(kw >= 18 && kw <= 44);
                     assert(kh >= 24 && kh <= 75);
