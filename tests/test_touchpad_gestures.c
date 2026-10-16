@@ -76,6 +76,8 @@ k_work_delayable_from_work(struct k_work *work) {
 #define INPUT_BTN_MIDDLE 0x112
 #define INPUT_BTN_3 0x113
 #define INPUT_BTN_4 0x114
+#define INPUT_BTN_5 0x115
+#define INPUT_BTN_6 0x116
 
 #define GPIO_INPUT (1U << 0)
 #define GPIO_PULL_UP (1U << 1)
@@ -618,6 +620,234 @@ static void test_physical_clickpad_zones_and_liftoff_before_release(void) {
   assert(mock_key_events[1].value == 0);
 }
 
+static void test_2f_tap_with_settling_jitter(void) {
+  mock_reset();
+
+  /* Touch 2 fingers at (400, 400) and (600, 400): centroid (500, 400), span 200 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  /* Jitter centroid by 30 units (< 45 deadzone) and span by 20 units (< 55 deadzone):
+   * Finger 0 at (390, 430), Finger 1 at (610, 430) -> centroid (500, 430), span 220 */
+  mock_now_ms = 40;
+  mock_enqueue_ptp_packet(0x03, 390, 430, 0x03, 610, 430, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
+  assert(mock_rel_event_count == 0);
+  assert(mock_key_event_count == 0);
+
+  /* Lift after 120 ms -> assert INPUT_BTN_RIGHT click emitted (1 then 0 after 40 ms) */
+  mock_now_ms = 120;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_rel_event_count == 0);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_RIGHT);
+  assert(mock_key_events[0].value == 1);
+  assert(test_data.tap_right_release_work.scheduled == true);
+  assert(test_data.tap_right_release_work.delay_ms == 40);
+
+  mock_now_ms = 160;
+  mock_step_work(&test_data.tap_right_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_RIGHT);
+  assert(mock_key_events[1].value == 0);
+}
+
+static void test_2f_natural_scroll_aggregated_in_8ms_frame(void) {
+  mock_reset();
+
+  /* Prime BLE frame timer at t = 0 ms and touch 2 fingers at (400, 500) and (600, 500) */
+  mock_now_ms = 0;
+  test_data.has_ble_report = true;
+  test_data.last_ble_report_time = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 500, 0x03, 600, 500, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  /* Move parallel up: dy = -30 per packet for 3 packets within 6 ms (total dy = -90) */
+  for (int i = 1; i <= 3; i++) {
+    mock_now_ms = i * 2; /* t = 2, 4, 6 ms */
+    uint16_t y = (uint16_t)(500 - i * 30);
+    mock_enqueue_ptp_packet(0x03, 400, y, 0x03, 600, y, 0, 0, 0, 2, false);
+    mock_step_work(&test_data.work);
+    /* Assert INPUT_REL_WHEEL is NOT emitted inside the packet loop during t = 1..6 ms */
+    assert(mock_rel_event_count == 0);
+  }
+
+  assert(test_data.two_finger_mode == TWO_FINGER_SCROLL);
+  assert(test_data.pend_wheel == -2);
+
+  /* At t = 8 ms BLE flush, emitted once as a single aggregated tick count */
+  mock_now_ms = 8;
+  mock_step_work(&test_data.work);
+  assert(mock_rel_event_count == 1);
+  assert(mock_rel_events[0].code == INPUT_REL_WHEEL);
+  assert(mock_rel_events[0].value == -2);
+  assert(mock_rel_events[0].sync == true);
+
+  /* Verify horizontal scroll when |dx| > 2 * |dy| accumulates into pend_hwheel */
+  mock_rel_event_count = 0;
+  mock_now_ms = 10;
+  mock_enqueue_ptp_packet(0x03, 460, 420, 0x03, 660, 420, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.pend_hwheel == 2);
+  assert(mock_rel_event_count == 0);
+
+  mock_now_ms = 16;
+  mock_step_work(&test_data.work);
+  assert(mock_rel_event_count == 1);
+  assert(mock_rel_events[0].code == INPUT_REL_HWHEEL);
+  assert(mock_rel_events[0].value == 2);
+  assert(mock_rel_events[0].sync == true);
+}
+
+static void test_2f_pinch_to_zoom_in_and_out_rapid(void) {
+  mock_reset();
+
+  /* Touch 2 fingers at (300, 400) and (600, 400) (initial span 300 >= 160) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  /* Expand span by +180 units (> 2 * PINCH_STEP, where PINCH_STEP = 85) within 10 ms:
+   * Finger 0 at (210, 400), Finger 1 at (690, 400) -> centroid (450, 400), span 480 (+180) */
+  mock_now_ms = 5;
+  mock_enqueue_ptp_packet(0x03, 210, 400, 0x03, 690, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  assert(test_data.two_finger_mode == TWO_FINGER_PINCH);
+  assert(mock_key_event_count == 4);
+  assert(mock_key_events[0].code == INPUT_BTN_5 && mock_key_events[0].value == 0);
+  assert(mock_key_events[1].code == INPUT_BTN_5 && mock_key_events[1].value == 1);
+  assert(mock_key_events[2].code == INPUT_BTN_5 && mock_key_events[2].value == 0);
+  assert(mock_key_events[3].code == INPUT_BTN_5 && mock_key_events[3].value == 1);
+  assert(test_data.pinch_in_release_work.scheduled == true);
+  assert(test_data.pinch_in_release_work.delay_ms == 35);
+
+  /* Contract span by -90 units:
+   * Finger 0 at (255, 400), Finger 1 at (645, 400) -> centroid (450, 400), span 390 (-90) */
+  mock_key_event_count = 0;
+  mock_now_ms = 10;
+  mock_enqueue_ptp_packet(0x03, 255, 400, 0x03, 645, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[0].code == INPUT_BTN_6 && mock_key_events[0].value == 0);
+  assert(mock_key_events[1].code == INPUT_BTN_6 && mock_key_events[1].value == 1);
+  assert(test_data.pinch_out_release_work.scheduled == true);
+  assert(test_data.pinch_out_release_work.delay_ms == 35);
+}
+
+static void test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard(void) {
+  mock_reset();
+
+  /* Touch 1F at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Move (15, 15) at t = 8 ms (buffered in grace_dx/grace_dy) */
+  mock_now_ms = 8;
+  mock_enqueue_ptp_packet(0x03, 415, 415, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.in_grace_window == true);
+  assert(test_data.grace_dx != 0 && test_data.grace_dy != 0);
+  assert(mock_rel_event_count == 0);
+
+  /* Land 2nd finger at t = 12 ms -> grace_dx/grace_dy discarded, zero INPUT_REL_X/Y emitted */
+  mock_now_ms = 12;
+  mock_enqueue_ptp_packet(0x03, 415, 415, 0x03, 615, 415, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.in_grace_window == false);
+  assert(test_data.grace_dx == 0 && test_data.grace_dy == 0);
+  assert(mock_rel_event_count == 0);
+
+  /* Scroll with 2F at t = 20 ms */
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x03, 415, 475, 0x03, 615, 475, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.two_finger_mode == TWO_FINGER_SCROLL);
+  mock_rel_event_count = 0;
+
+  /* Lift 2nd finger leaving 1F moving (50, 50) while gesture_max_fingers == 2 */
+  mock_now_ms = 30;
+  mock_enqueue_ptp_packet(0x03, 465, 525, 0x00, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 40;
+  mock_enqueue_ptp_packet(0x03, 515, 575, 0x00, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.gesture_max_fingers == 2);
+  assert(mock_rel_event_count == 0);
+
+  /* Lift all fingers (contacts == 0) */
+  mock_now_ms = 50;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.gesture_max_fingers == 0);
+  assert(mock_rel_event_count == 0);
+  assert(mock_key_event_count == 0);
+}
+
+static void test_3f_tap_and_swipes(void) {
+  /* 1. 3F tap (< 280 ms, no swipe) emits INPUT_BTN_MIDDLE */
+  mock_reset();
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 500, 400, 0x03, 700, 400, 3,
+                          false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 100;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_MIDDLE);
+  assert(mock_key_events[0].value == 1);
+  assert(test_data.tap_middle_release_work.scheduled == true);
+  assert(test_data.tap_middle_release_work.delay_ms == 40);
+
+  mock_now_ms = 140;
+  mock_step_work(&test_data.tap_middle_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_MIDDLE);
+  assert(mock_key_events[1].value == 0);
+
+  /* 2. 3F swipe up (swipe_dy < -120) emits INPUT_BTN_3 */
+  mock_reset();
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 500, 0x03, 500, 500, 0x03, 700, 500, 3,
+                          false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x03, 300, 350, 0x03, 500, 350, 0x03, 700, 350, 3,
+                          false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_3);
+  assert(mock_key_events[0].value == 1);
+  assert(test_data.swipe_up_release_work.scheduled == true);
+  assert(test_data.swipe_up_release_work.delay_ms == 40);
+
+  /* 3. 3F swipe down (swipe_dy > 120) emits INPUT_BTN_4 */
+  mock_reset();
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 300, 0x03, 500, 300, 0x03, 700, 300, 3,
+                          false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x03, 300, 450, 0x03, 500, 450, 0x03, 700, 450, 3,
+                          false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_4);
+  assert(mock_key_events[0].value == 1);
+  assert(test_data.swipe_down_release_work.scheduled == true);
+  assert(test_data.swipe_down_release_work.delay_ms == 40);
+}
+
 int main(void) {
   test_i2c_32_byte_read_and_6_packet_cap();
   test_ble_8ms_coalescing_and_stranded_flush();
@@ -627,6 +857,11 @@ int main(void) {
   test_1f_tap_and_grace_window_early_lift();
   test_1f_double_tap_drag_and_180ms_drag_lock();
   test_physical_clickpad_zones_and_liftoff_before_release();
+  test_2f_tap_with_settling_jitter();
+  test_2f_natural_scroll_aggregated_in_8ms_frame();
+  test_2f_pinch_to_zoom_in_and_out_rapid();
+  test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard();
+  test_3f_tap_and_swipes();
   printf("PASS: all touchpad gesture tests passed\n");
   return 0;
 }
