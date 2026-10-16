@@ -331,9 +331,13 @@ static void test_i2c_32_byte_read_and_6_packet_cap(void) {
 static void test_ble_8ms_coalescing_and_stranded_flush(void) {
   mock_reset();
 
-  /* Initial touch-down and first movement report at t = 0 ms to prime BLE timer */
-  mock_now_ms = 0;
+  /* Initial touch-down at t = -25 ms and first movement report at t = 0 ms
+   * (past 20 ms grace window) to prime BLE timer at t = 0 ms */
+  mock_now_ms = -25;
   mock_enqueue_ptp_packet(0x03, 300, 300, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 0;
   mock_enqueue_ptp_packet(0x03, 305, 305, 0, 0, 0, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
   assert(mock_rel_event_count == 2);
@@ -392,15 +396,16 @@ static void test_confidence_and_palm_edge_rejection(void) {
   assert(test_data.palm_suppressed == false);
   assert(mock_rel_event_count == 0);
 
-  /* 4. Subsequent frame inside interior produces normal relative movement */
+  /* 4. Subsequent frame inside interior produces normal relative movement
+   * (raw_dx = 15, raw_dy = 10 -> v = 25, gain = 24/16 -> out_dx = 22, out_dy = 15) */
   mock_now_ms = 40;
   mock_enqueue_ptp_packet(0x03, 125, 440, 0, 0, 0, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
   assert(mock_rel_event_count == 2);
   assert(mock_rel_events[0].code == INPUT_REL_X);
-  assert(mock_rel_events[0].value == 15);
+  assert(mock_rel_events[0].value == 22);
   assert(mock_rel_events[1].code == INPUT_REL_Y);
-  assert(mock_rel_events[1].value == 10);
+  assert(mock_rel_events[1].value == 15);
 }
 
 static void test_gap_reanchoring_and_spike_recovery(void) {
@@ -439,11 +444,189 @@ static void test_gap_reanchoring_and_spike_recovery(void) {
   assert(mock_rel_events[0].sync == true);
 }
 
+static void test_1f_ballistics_and_subpixel(void) {
+  mock_reset();
+
+  int16_t out_dx = 0;
+  int16_t out_dy = 0;
+
+  /* 1. Slow step raw_dx = 1, raw_dy = 0 (v <= 6, EMA + Q4 gain 12/16):
+   * preserves fractional subpixel_rem_x across calls and emits +1 once >= 16 */
+  synaptics_apply_ballistics(&test_data, 1, 0, &out_dx, &out_dy);
+  assert(out_dx == 0);
+  assert(out_dy == 0);
+  assert(test_data.subpixel_rem_x == 12);
+
+  synaptics_apply_ballistics(&test_data, 1, 0, &out_dx, &out_dy);
+  assert(out_dx == 1);
+  assert(out_dy == 0);
+  assert(test_data.subpixel_rem_x == 8);
+
+  test_data.subpixel_rem_x = 0;
+  test_data.subpixel_rem_y = 0;
+
+  /* 2. Medium step raw_dx = 12, raw_dy = 0 (6 < v <= 22, Q4 gain 16/16) -> 12 */
+  synaptics_apply_ballistics(&test_data, 12, 0, &out_dx, &out_dy);
+  assert(out_dx == 12);
+  assert(out_dy == 0);
+
+  /* 3. Fast step raw_dx = 30, raw_dy = 0 (22 < v <= 50, Q4 gain 24/16) -> 45 */
+  synaptics_apply_ballistics(&test_data, 30, 0, &out_dx, &out_dy);
+  assert(out_dx == 45);
+  assert(out_dy == 0);
+
+  /* 4. Swipe step raw_dx = 60, raw_dy = 0 (v > 50, Q4 gain 32/16) -> 120 */
+  synaptics_apply_ballistics(&test_data, 60, 0, &out_dx, &out_dy);
+  assert(out_dx == 120);
+  assert(out_dy == 0);
+}
+
+static void test_1f_tap_and_grace_window_early_lift(void) {
+  mock_reset();
+
+  /* Touch 1F at (400, 400) at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.in_grace_window == true);
+  assert(mock_rel_event_count == 0);
+
+  /* Move to (410, 405) at t = 8 ms (inside 20 ms / < 35 unit grace window) */
+  mock_now_ms = 8;
+  mock_enqueue_ptp_packet(0x03, 410, 405, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.in_grace_window == true);
+  assert(test_data.grace_dx == 10);
+  assert(test_data.grace_dy == 5);
+  assert(mock_rel_event_count == 0);
+
+  /* Lift at t = 15 ms -> 0 cursor movement emitted, grace cleared, tap click emitted */
+  mock_now_ms = 15;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_rel_event_count == 0);
+  assert(test_data.in_grace_window == false);
+  assert(test_data.grace_dx == 0);
+  assert(test_data.grace_dy == 0);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[0].value == 1);
+  assert(test_data.tap_release_work.scheduled == true);
+  assert(test_data.tap_release_work.delay_ms == 40);
+
+  /* Advance 40 ms to t = 55 ms and execute tap release */
+  mock_now_ms = 55;
+  mock_step_work(&test_data.tap_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[1].value == 0);
+}
+
+static void test_1f_double_tap_drag_and_180ms_drag_lock(void) {
+  mock_reset();
+
+  /* 1. Perform 1F tap at (400, 400) (t = 0..50 ms) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 50;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[0].value == 1);
+
+  mock_now_ms = 90;
+  mock_step_work(&test_data.tap_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].value == 0);
+  mock_key_event_count = 0;
+
+  /* 2. Re-touch at (410, 410) at t = 150 ms (< 400 ms and < 140 units) and move */
+  mock_now_ms = 150;
+  mock_enqueue_ptp_packet(0x03, 410, 410, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.is_tap_dragging == true);
+  assert(mock_key_event_count >= 1);
+  assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[mock_key_event_count - 1].value == 1);
+
+  mock_now_ms = 160;
+  mock_enqueue_ptp_packet(0x03, 425, 420, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* 3. Lift finger at t = 300 ms -> INPUT_BTN_LEFT NOT immediately released,
+   * tap_release_work scheduled for 180 ms (DRAG_LOCK_CONT_MS) */
+  int key_events_before_lift = mock_key_event_count;
+  mock_now_ms = 300;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == key_events_before_lift);
+  assert(test_data.is_tap_dragging == true);
+  assert(test_data.tap_release_work.scheduled == true);
+  assert(test_data.tap_release_work.delay_ms == 180);
+
+  /* 4. Re-touch 1F at t = 420 ms (120 ms < 180 ms) -> tap_release_work cancelled,
+   * is_tap_dragging remains true without releasing INPUT_BTN_LEFT */
+  mock_now_ms = 420;
+  mock_enqueue_ptp_packet(0x03, 430, 425, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.tap_release_work.scheduled == false);
+  assert(test_data.is_tap_dragging == true);
+  assert(mock_key_event_count == key_events_before_lift);
+
+  /* 5. Lift finger at t = 500 ms and advance time to t = 700 ms (> 180 ms)
+   * executing tap_release_work -> INPUT_BTN_LEFT released (0) and is_tap_dragging == false */
+  mock_now_ms = 500;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.tap_release_work.scheduled == true);
+  assert(test_data.tap_release_work.delay_ms == 180);
+
+  mock_now_ms = 700;
+  mock_step_work(&test_data.tap_release_work);
+  assert(test_data.is_tap_dragging == false);
+  assert(mock_key_event_count == key_events_before_lift + 1);
+  assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[mock_key_event_count - 1].value == 0);
+}
+
+static void test_physical_clickpad_zones_and_liftoff_before_release(void) {
+  mock_reset();
+
+  /* 1. Press physical click (buf[31] = 1) with 1F at (800, 750) (x0 > 650 && y0 > 650) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 800, 750, 0, 0, 0, 0, 0, 0, 1, true);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_RIGHT);
+  assert(mock_key_events[0].value == 1);
+
+  /* 2. Lift finger (contacts = 0, buf[31] = 1) -> no tap-to-click fires on liftoff */
+  mock_now_ms = 30;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, true);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+
+  /* 3. Release physical click (buf[31] = 0) -> INPUT_BTN_RIGHT released (0), NOT INPUT_BTN_LEFT */
+  mock_now_ms = 60;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_RIGHT);
+  assert(mock_key_events[1].value == 0);
+}
+
 int main(void) {
   test_i2c_32_byte_read_and_6_packet_cap();
   test_ble_8ms_coalescing_and_stranded_flush();
   test_confidence_and_palm_edge_rejection();
   test_gap_reanchoring_and_spike_recovery();
+  test_1f_ballistics_and_subpixel();
+  test_1f_tap_and_grace_window_early_lift();
+  test_1f_double_tap_drag_and_180ms_drag_lock();
+  test_physical_clickpad_zones_and_liftoff_before_release();
   printf("PASS: all touchpad gesture tests passed\n");
   return 0;
 }
