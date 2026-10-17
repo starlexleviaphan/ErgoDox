@@ -990,6 +990,97 @@ static void test_pinch_zoom_dropout_no_freeze(void) {
   assert(test_data.gesture_max_fingers == 0);
 }
 
+static void test_tap_release_handler_does_not_abort_active_drag(void) {
+  mock_reset();
+
+  /* 1. Perform 1F tap at (400, 400) (t = 0..30 ms) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  mock_now_ms = 30;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[0].value == 1);
+
+  /* 2. Tap 2 lands at t = 50 ms (BEFORE tap_release_work fires at 70 ms) */
+  mock_now_ms = 50;
+  mock_enqueue_ptp_packet(0x03, 410, 410, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.is_tap_dragging == true);
+  assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[mock_key_event_count - 1].value == 1);
+
+  /* 3. Delayed tap_release_work runs at t = 70 ms */
+  mock_now_ms = 70;
+  int key_count_before = mock_key_event_count;
+  mock_step_work(&test_data.tap_release_work);
+
+  /* CRITICAL: Must NOT abort drag or release INPUT_BTN_LEFT = 0 */
+  assert(test_data.is_tap_dragging == true);
+  assert(mock_key_event_count == key_count_before);
+
+  /* 4. Physical liftoff at t = 200 ms: NOW drag releases */
+  mock_now_ms = 200;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.is_tap_dragging == false);
+  assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[mock_key_event_count - 1].value == 0);
+}
+
+static void test_inactivity_watchdog_never_emits_tap_click(void) {
+  mock_reset();
+
+  /* 1. Finger touches down at (400, 400) at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.prev_touching == true);
+  assert(mock_key_event_count == 0);
+
+  /* 2. Finger rests stationary without generating packets.
+   * At t = 260 ms (> 250 ms watchdog timeout), watchdog executes */
+  mock_now_ms = 260;
+  mock_step_work(&test_data.work);
+
+  /* Watchdog cleans up prev_touching */
+  assert(test_data.prev_touching == false);
+  /* BUT CRITICAL INVARIANT: NO TAP CLICK MAY BE EMITTED ON TIMEOUT */
+  assert(mock_key_event_count == 0);
+}
+
+static void test_touch_confidence_flutter_does_not_trigger_liftoff_or_tap(void) {
+  mock_reset();
+
+  /* 1. Finger touches down at (400, 400) with confidence (0x03) at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.prev_touching == true);
+
+  /* 2. At t = 20 ms, confidence bit flickers to 0 (status0 = 0x02, Tip Switch still 1) */
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x02, 405, 405, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Contact MUST be maintained, NOT treated as liftoff, NO tap emitted */
+  assert(test_data.prev_touching == true);
+  assert(mock_key_event_count == 0);
+
+  /* 3. At t = 60 ms, finger physically lifts off (status0 = 0x00) */
+  mock_now_ms = 60;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+
+  /* Physical liftoff produces the single tap click */
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[0].value == 1);
+}
+
 int main(void) {
   test_i2c_32_byte_read_and_6_packet_cap();
   test_ble_8ms_coalescing_and_stranded_flush();
@@ -998,6 +1089,9 @@ int main(void) {
   test_1f_ballistics_and_subpixel();
   test_1f_tap_and_grace_window_early_lift();
   test_1f_double_tap_drag_and_liftoff_release();
+  test_tap_release_handler_does_not_abort_active_drag();
+  test_inactivity_watchdog_never_emits_tap_click();
+  test_touch_confidence_flutter_does_not_trigger_liftoff_or_tap();
   test_physical_clickpad_zones_and_liftoff_before_release();
   test_2f_tap_with_settling_jitter();
   test_2f_natural_scroll_aggregated_in_8ms_frame();
