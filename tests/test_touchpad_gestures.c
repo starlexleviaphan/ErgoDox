@@ -879,24 +879,26 @@ static void test_double_tap_offset_no_cursor_jump_and_enters_drag(void) {
   assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
   assert(mock_key_events[mock_key_event_count - 1].value == 1);
 
-  /* 2b. Hold finger stationary for 200 ms without lifting:
-   * INPUT_BTN_LEFT MUST REMAIN HELD DOWN, is_tap_dragging MUST STAY TRUE! */
-  mock_now_ms = 220;
-  mock_enqueue_ptp_packet(0x03, 600, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  /* 2b. Hold finger stationary for 500 ms with 0 packets read (inactivity):
+   * Because is_tap_dragging == true, the 250 ms timeout does NOT release Left button!
+   * Drag timeout is 1500 ms! */
+  mock_now_ms = 400;
   mock_step_work(&test_data.work);
   assert(test_data.is_tap_dragging == true);
   assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
   assert(mock_key_events[mock_key_event_count - 1].value == 1);
 
-  mock_now_ms = 340;
-  mock_enqueue_ptp_packet(0x03, 600, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  /* 2c. Even if status0 bit 0 drops (confidence flutter, status0 = 0x02):
+   * tip0 remains true because Tip Switch is held! */
+  mock_now_ms = 450;
+  mock_enqueue_ptp_packet(0x02, 600, 400, 0, 0, 0, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
   assert(test_data.is_tap_dragging == true);
   assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
   assert(mock_key_events[mock_key_event_count - 1].value == 1);
 
-  /* 3. Now move continuously from (600, 400) to (630, 400) at t = 360 ms */
-  mock_now_ms = 360;
+  /* 3. Now move continuously from (600, 400) to (630, 400) at t = 470 ms */
+  mock_now_ms = 470;
   mock_enqueue_ptp_packet(0x03, 630, 400, 0, 0, 0, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
 
@@ -925,15 +927,15 @@ static void test_double_tap_without_liftoff_packet_no_cursor_jump(void) {
   mock_step_work(&test_data.work);
 
   /* 2. Finger lifts at t = 30 ms WITHOUT sending a 0x00 packet.
-   * Work handler runs with 0 packets read at t = 130 ms (>= 95 ms liftoff timeout). */
-  mock_now_ms = 130;
+   * Work handler runs with 0 packets read at t = 280 ms (>= 250 ms liftoff timeout). */
+  mock_now_ms = 280;
   mock_step_work(&test_data.work);
   /* Fast liftoff watchdog should have triggered liftoff! */
   assert(test_data.prev_touching == false);
 
-  /* 3. Tap 2 lands at (550, 400) at t = 200 ms */
+  /* 3. Tap 2 lands at (550, 400) at t = 350 ms */
   mock_rel_event_count = 0;
-  mock_now_ms = 200;
+  mock_now_ms = 350;
   mock_enqueue_ptp_packet(0x03, 550, 400, 0, 0, 0, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
 
