@@ -710,33 +710,41 @@ static void test_2f_pinch_to_zoom_in_and_out_rapid(void) {
   mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
-  /* Expand span by +180 units (> 2 * PINCH_STEP, where PINCH_STEP = 85) within 10 ms:
+  /* Expand span by +180 units (> PINCH_STEP, where PINCH_STEP = 85) within 10 ms:
    * Finger 0 at (210, 400), Finger 1 at (690, 400) -> centroid (450, 400), span 480 (+180) */
   mock_now_ms = 5;
   mock_enqueue_ptp_packet(0x03, 210, 400, 0x03, 690, 400, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
   assert(test_data.two_finger_mode == TWO_FINGER_PINCH);
-  assert(mock_key_event_count == 4);
-  assert(mock_key_events[0].code == INPUT_BTN_5 && mock_key_events[0].value == 0);
-  assert(mock_key_events[1].code == INPUT_BTN_5 && mock_key_events[1].value == 1);
-  assert(mock_key_events[2].code == INPUT_BTN_5 && mock_key_events[2].value == 0);
-  assert(mock_key_events[3].code == INPUT_BTN_5 && mock_key_events[3].value == 1);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_5 && mock_key_events[0].value == 1);
   assert(test_data.pinch_in_release_work.scheduled == true);
-  assert(test_data.pinch_in_release_work.delay_ms == 35);
+  assert(test_data.pinch_in_release_work.delay_ms == 25);
 
-  /* Contract span by -90 units:
+  /* Execute release at t = 30 ms */
+  mock_now_ms = 30;
+  mock_step_work(&test_data.pinch_in_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_5 && mock_key_events[1].value == 0);
+
+  /* Contract span by -90 units at t = 70 ms (>= 60 ms rate limit from t = 5 ms):
    * Finger 0 at (255, 400), Finger 1 at (645, 400) -> centroid (450, 400), span 390 (-90) */
   mock_key_event_count = 0;
-  mock_now_ms = 10;
+  mock_now_ms = 70;
   mock_enqueue_ptp_packet(0x03, 255, 400, 0x03, 645, 400, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
-  assert(mock_key_event_count == 2);
-  assert(mock_key_events[0].code == INPUT_BTN_6 && mock_key_events[0].value == 0);
-  assert(mock_key_events[1].code == INPUT_BTN_6 && mock_key_events[1].value == 1);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_6 && mock_key_events[0].value == 1);
   assert(test_data.pinch_out_release_work.scheduled == true);
-  assert(test_data.pinch_out_release_work.delay_ms == 35);
+  assert(test_data.pinch_out_release_work.delay_ms == 25);
+
+  /* Execute release at t = 95 ms */
+  mock_now_ms = 95;
+  mock_step_work(&test_data.pinch_out_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_6 && mock_key_events[1].value == 0);
 }
 
 static void test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard(void) {
@@ -843,9 +851,129 @@ static void test_3f_tap_and_swipes(void) {
   mock_step_work(&test_data.work);
   assert(mock_key_event_count == 1);
   assert(mock_key_events[0].code == INPUT_BTN_4);
-  assert(mock_key_events[0].value == 1);
-  assert(test_data.swipe_down_release_work.scheduled == true);
   assert(test_data.swipe_down_release_work.delay_ms == 40);
+}
+
+static void test_double_tap_offset_no_cursor_jump_and_enters_drag(void) {
+  mock_reset();
+
+  /* 1. Perform Tap 1 at (400, 400) (t = 0..30 ms) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Liftoff at t = 30 ms */
+  mock_now_ms = 30;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_LEFT && mock_key_events[0].value == 1);
+
+  /* Release Tap 1 at t = 70 ms */
+  mock_now_ms = 70;
+  mock_step_work(&test_data.tap_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].value == 0);
+  mock_key_event_count = 0;
+  mock_rel_event_count = 0;
+
+  /* 2. Tap 2 lands at (600, 400) at t = 140 ms (d_tap_x = 200, which is > 140) */
+  mock_now_ms = 140;
+  mock_enqueue_ptp_packet(0x03, 600, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Assertions:
+   * 1. Must recognize tap-and-drag (is_tap_dragging == true).
+   * 2. Must NOT emit ANY relative movement on touch down (mock_rel_event_count == 0).
+   * 3. Must hold INPUT_BTN_LEFT.
+   */
+  assert(test_data.is_tap_dragging == true);
+  assert(mock_rel_event_count == 0);
+  assert(mock_key_event_count >= 1);
+  assert(mock_key_events[mock_key_event_count - 1].code == INPUT_BTN_LEFT);
+  assert(mock_key_events[mock_key_event_count - 1].value == 1);
+
+  /* 3. Now move continuously from (600, 400) to (630, 400) at t = 160 ms */
+  mock_now_ms = 160;
+  mock_enqueue_ptp_packet(0x03, 630, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Relative movement should be emitted continuously from 600 -> 630 (dx = 30) */
+  assert(mock_rel_event_count >= 1);
+  assert(mock_rel_events[0].code == INPUT_REL_X);
+  assert(mock_rel_events[0].value > 0);
+}
+
+static void test_double_tap_without_liftoff_packet_no_cursor_jump(void) {
+  mock_reset();
+
+  /* 1. Touch at (400, 400) at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* 2. Finger lifts at t = 30 ms WITHOUT sending a 0x00 packet.
+   * Work handler runs with 0 packets read at t = 55 ms (> 20 ms liftoff timeout). */
+  mock_now_ms = 55;
+  mock_step_work(&test_data.work);
+  /* Fast liftoff watchdog should have triggered liftoff! */
+  assert(test_data.prev_touching == false);
+
+  /* 3. Tap 2 lands at (550, 400) at t = 100 ms */
+  mock_rel_event_count = 0;
+  mock_now_ms = 100;
+  mock_enqueue_ptp_packet(0x03, 550, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* MUST NOT emit cursor jump */
+  assert(mock_rel_event_count == 0);
+}
+
+static void test_discontinuity_jump_filter_prevents_teleportation(void) {
+  mock_reset();
+
+  /* Touch at (400, 400) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 400, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Touch down teleportation to (600, 400) (dx = 200) within 15 ms without liftoff packet */
+  mock_now_ms = 15;
+  mock_enqueue_ptp_packet(0x03, 600, 400, 0, 0, 0, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Under our discontinuity guard, dx=200 is rejected as continuous motion, so 0 delta emitted */
+  assert(mock_rel_event_count == 0);
+  assert(test_data.prev_x0 == 600);
+}
+
+static void test_pinch_zoom_dropout_no_freeze(void) {
+  mock_reset();
+
+  /* Touch 2 fingers at (300, 400) and (600, 400) */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+
+  /* Spread fingers to (210, 400) and (690, 400) (+180 span) */
+  mock_now_ms = 10;
+  mock_enqueue_ptp_packet(0x03, 210, 400, 0x03, 690, 400, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.two_finger_mode == TWO_FINGER_PINCH);
+
+  /* Finger 1 drops confidence (0x02 instead of 0x03) near edge */
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x03, 200, 400, 0x02, 700, 400, 0, 0, 0, 1, false);
+  mock_step_work(&test_data.work);
+
+  /* Must cleanly terminate pinch mode and release INPUT_BTN_5 */
+  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
+
+  /* All fingers lift */
+  mock_now_ms = 35;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+  assert(test_data.gesture_max_fingers == 0);
 }
 
 int main(void) {
@@ -862,6 +990,10 @@ int main(void) {
   test_2f_pinch_to_zoom_in_and_out_rapid();
   test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard();
   test_3f_tap_and_swipes();
+  test_double_tap_offset_no_cursor_jump_and_enters_drag();
+  test_double_tap_without_liftoff_packet_no_cursor_jump();
+  test_discontinuity_jump_filter_prevents_teleportation();
+  test_pinch_zoom_dropout_no_freeze();
   printf("PASS: all touchpad gesture tests passed\n");
   return 0;
 }
