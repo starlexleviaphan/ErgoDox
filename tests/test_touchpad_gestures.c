@@ -1046,13 +1046,13 @@ static void test_stationary_jitter_suppression(void) {
   assert(mock_rel_event_count == 0);
 }
 
-static void test_4f_tap_toggles_3f_gestures(void) {
+static void test_3f_gestures_disabled_by_default(void) {
   mock_reset();
 
-  /* 1. Initially disabled */
+  /* 1. 3F gestures are disabled by default */
   assert(test_data.three_finger_gestures_enabled == false);
 
-  /* Attempt 3F swipe up -> must be ignored */
+  /* Attempt 3F swipe up -> must be ignored and not emit any keys */
   mock_now_ms = 0;
   mock_enqueue_ptp_packet(0x03, 300, 500, 0x03, 500, 500, 0x03, 700, 500, 3, false);
   mock_step_work(&test_data.work);
@@ -1061,68 +1061,13 @@ static void test_4f_tap_toggles_3f_gestures(void) {
   mock_enqueue_ptp_packet(0x03, 300, 300, 0x03, 500, 300, 0x03, 700, 300, 3, false);
   mock_step_work(&test_data.work);
   assert(mock_key_event_count == 0);
+  assert(test_data.three_finger_swiped == true);
 
-  /* Liftoff at t = 200 ms (> 180 ms TAP_MAX_DURATION_MS) */
+  /* Liftoff at t = 200 ms: no swipe key and NO accidental middle click */
   mock_now_ms = 200;
   mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
   mock_step_work(&test_data.work);
   assert(mock_key_event_count == 0);
-
-  /* 2. 4-Finger Tap (duration 50 ms < 250 ms) */
-  mock_now_ms = 300;
-  mock_enqueue_ptp_packet(0x03, 200, 500, 0x03, 400, 500, 0x03, 600, 500, 4, false);
-  mock_step_work(&test_data.work);
-  assert(test_data.gesture_max_fingers == 4);
-
-  mock_now_ms = 350;
-  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
-  mock_step_work(&test_data.work);
-
-  /* 3F gestures should now be ENABLED! No mouse clicks emitted on 4F tap */
-  assert(test_data.three_finger_gestures_enabled == true);
-  assert(mock_key_event_count == 0);
-
-  /* 3. 3F swipe up now WORKS */
-  mock_now_ms = 400;
-  mock_enqueue_ptp_packet(0x03, 300, 500, 0x03, 500, 500, 0x03, 700, 500, 3, false);
-  mock_step_work(&test_data.work);
-
-  mock_now_ms = 420;
-  mock_enqueue_ptp_packet(0x03, 300, 300, 0x03, 500, 300, 0x03, 700, 300, 3, false);
-  mock_step_work(&test_data.work);
-  assert(mock_key_event_count == 1);
-  assert(mock_key_events[0].code == INPUT_BTN_3);
-  assert(mock_key_events[0].value == 1);
-
-  /* Release swipe */
-  mock_now_ms = 460;
-  mock_step_work(&test_data.swipe_up_release_work);
-  assert(mock_key_events[1].code == INPUT_BTN_3 && mock_key_events[1].value == 0);
-  mock_now_ms = 480;
-  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
-  mock_step_work(&test_data.work);
-  mock_key_event_count = 0;
-
-  /* 4. Second 4-Finger Tap: toggles back to DISABLED */
-  mock_now_ms = 500;
-  mock_enqueue_ptp_packet(0x03, 200, 500, 0x03, 400, 500, 0x03, 600, 500, 4, false);
-  mock_step_work(&test_data.work);
-
-  mock_now_ms = 550;
-  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
-  mock_step_work(&test_data.work);
-  assert(test_data.three_finger_gestures_enabled == false);
-  assert(mock_key_event_count == 0);
-
-  /* 5. Long 4-Finger hold (duration 300 ms >= 250 ms) -> MUST NOT toggle */
-  mock_now_ms = 600;
-  mock_enqueue_ptp_packet(0x03, 200, 500, 0x03, 400, 500, 0x03, 600, 500, 4, false);
-  mock_step_work(&test_data.work);
-
-  mock_now_ms = 900;
-  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
-  mock_step_work(&test_data.work);
-  assert(test_data.three_finger_gestures_enabled == false);
 }
 
 static void test_double_tap_without_liftoff_packet_no_cursor_jump(void) {
@@ -1394,7 +1339,7 @@ int main(void) {
   test_discontinuity_jump_filter_prevents_teleportation();
   test_pinch_zoom_dropout_no_freeze();
   test_stationary_jitter_suppression();
-  test_4f_tap_toggles_3f_gestures();
+  test_3f_gestures_disabled_by_default();
   test_3f_swipe_when_disabled_does_not_trigger_middle_click();
   test_independent_touch_outside_landing_zone_clears_tap_history();
   printf("PASS: all touchpad gesture tests passed\n");
