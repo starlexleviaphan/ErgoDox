@@ -23,3 +23,13 @@ def test_dongle_zip_button_behaviors():
         assert "INPUT_BTN_MIDDLE" in overlay, f"Missing INPUT_BTN_MIDDLE in {path}"
         assert "&kp LC(EQUAL)" in overlay, f"Missing Zoom In binding in {path}"
         assert "&kp LC(MINUS)" in overlay, f"Missing Zoom Out binding in {path}"
+
+
+def test_dongle_separate_mod_release():
+    for path in [
+        "zmk-config/boards/shields/ergodox/ergodox_dongle.conf",
+        "zmk-config/boards/shields/ergodox/ergodox_dongle_display.conf",
+    ]:
+        with open(path, "r", encoding="utf-8") as f:
+            conf = f.read()
+        assert "CONFIG_ZMK_HID_SEPARATE_MOD_RELEASE_REPORT=y" in conf, f"Missing separate mod release in {path}"

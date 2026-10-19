@@ -840,6 +840,38 @@ static void test_3f_tap_and_swipes(void) {
   assert(test_data.swipe_down_release_work.delay_ms == 40);
 }
 
+static void test_3f_swipe_liftoff_only_releases_active_button_and_does_not_double_release(void) {
+  mock_reset();
+
+  /* 1. Touch 3F at t = 0 */
+  mock_now_ms = 0;
+  mock_enqueue_ptp_packet(0x03, 300, 500, 0x03, 500, 500, 0x03, 700, 500, 3, false);
+  mock_step_work(&test_data.work);
+
+  /* 2. Swipe up at t = 20 ms */
+  mock_now_ms = 20;
+  mock_enqueue_ptp_packet(0x03, 300, 350, 0x03, 500, 350, 0x03, 700, 350, 3, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 1);
+  assert(mock_key_events[0].code == INPUT_BTN_3);
+  assert(mock_key_events[0].value == 1);
+
+  /* 3. Normal delayed release fires at t = 60 ms */
+  mock_now_ms = 60;
+  mock_step_work(&test_data.swipe_up_release_work);
+  assert(mock_key_event_count == 2);
+  assert(mock_key_events[1].code == INPUT_BTN_3);
+  assert(mock_key_events[1].value == 0);
+
+  /* 4. Liftoff occurs at t = 100 ms */
+  mock_now_ms = 100;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+
+  /* CRITICAL: Must NOT emit redundant INPUT_BTN_3 release or stray INPUT_BTN_4 release */
+  assert(mock_key_event_count == 2);
+}
+
 static void test_double_tap_offset_no_cursor_jump_and_enters_drag(void) {
   mock_reset();
 
@@ -1098,6 +1130,7 @@ int main(void) {
   test_2f_pinch_to_zoom_in_and_out_rapid();
   test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard();
   test_3f_tap_and_swipes();
+  test_3f_swipe_liftoff_only_releases_active_button_and_does_not_double_release();
   test_double_tap_offset_no_cursor_jump_and_enters_drag();
   test_double_tap_without_liftoff_packet_no_cursor_jump();
   test_discontinuity_jump_filter_prevents_teleportation();
