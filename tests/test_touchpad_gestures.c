@@ -327,7 +327,24 @@ static void test_i2c_32_byte_read_and_6_packet_cap(void) {
   assert(mock_i2c_read_calls == 6);
   assert(mock_last_i2c_read_len == 32);
   assert(test_data.work.scheduled == true);
-  assert(test_data.work.delay_ms == 1);
+  assert(test_data.work.delay_ms == SYNAPTICS_BLE_FRAME_MS);
+}
+
+static void test_irq_asserted_reschedules_at_ble_frame_ms(void) {
+  mock_reset();
+
+  /* Feed 10 packets (cap is 6) so irq pin remains asserted (> 0) after work handler */
+  for (int i = 0; i < 10; i++) {
+    mock_enqueue_ptp_packet(0x03, (uint16_t)(300 + i * 5), 300, 0, 0, 0, 0, 0,
+                            0, 1, false);
+  }
+
+  mock_step_work(&test_data.work);
+
+  /* Must be rescheduled with SYNAPTICS_BLE_FRAME_MS (8 ms) delay to avoid starving Zephyr system workqueue */
+  assert(test_data.work.scheduled == true);
+  assert(test_data.work.delay_ms == SYNAPTICS_BLE_FRAME_MS);
+  assert(test_data.work.delay_ms == 8);
 }
 
 static void test_ble_8ms_coalescing_and_stranded_flush(void) {
@@ -694,49 +711,64 @@ static void test_2f_natural_scroll_aggregated_in_8ms_frame(void) {
   assert(mock_rel_events[0].sync == true);
 }
 
-static void test_2f_pinch_to_zoom_in_and_out_rapid(void) {
+static void test_2f_scroll_with_changing_span_no_pinch(void) {
   mock_reset();
 
-  /* Touch 2 fingers at (300, 400) and (600, 400) (initial span 300 >= 160) */
+  /* Touch 2 fingers at (300, 400) and (600, 400) (initial span = 300) */
   mock_now_ms = 0;
   mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
+  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
+  assert(mock_key_event_count == 0);
+  assert(mock_rel_event_count == 0);
 
-  /* Expand span by +180 units (> PINCH_STEP, where PINCH_STEP = 85) within 10 ms:
-   * Finger 0 at (210, 400), Finger 1 at (690, 400) -> centroid (450, 400), span 480 (+180) */
-  mock_now_ms = 5;
-  mock_enqueue_ptp_packet(0x03, 210, 400, 0x03, 690, 400, 0, 0, 0, 2, false);
+  /* 1. Expand span widely from 300 to 500 (+200, simulating pinch-out) while moving upward:
+   * Finger 0 moves to (200, 360), Finger 1 moves to (700, 360) -> centroid (450, 360), dy = -40 */
+  mock_now_ms = 8;
+  mock_enqueue_ptp_packet(0x03, 200, 360, 0x03, 700, 360, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
-  assert(test_data.two_finger_mode == TWO_FINGER_PINCH);
-  assert(mock_key_event_count == 1);
-  assert(mock_key_events[0].code == INPUT_BTN_5 && mock_key_events[0].value == 1);
-  assert(test_data.pinch_in_release_work.scheduled == true);
-  assert(test_data.pinch_in_release_work.delay_ms == 25);
+  /* Must enter standard 2F scroll mode without any pinch zoom key emissions */
+  assert(test_data.two_finger_mode == TWO_FINGER_SCROLL);
+  assert(test_data.two_finger_scrolled == true);
+  assert(mock_key_event_count == 0); /* No INPUT_BTN_5 or INPUT_BTN_6! */
+  assert(test_data.pend_wheel == 0); /* Emitted directly at t = 8 ms flush */
 
-  /* Execute release at t = 30 ms */
-  mock_now_ms = 30;
-  mock_step_work(&test_data.pinch_in_release_work);
-  assert(mock_key_event_count == 2);
-  assert(mock_key_events[1].code == INPUT_BTN_5 && mock_key_events[1].value == 0);
+  /* Flush wheel report at t = 8 ms */
+  assert(mock_rel_event_count == 1);
+  assert(mock_rel_events[0].code == INPUT_REL_WHEEL);
+  assert(mock_rel_events[0].value == -1);
 
-  /* Contract span by -90 units at t = 70 ms (>= 60 ms rate limit from t = 5 ms):
-   * Finger 0 at (255, 400), Finger 1 at (645, 400) -> centroid (450, 400), span 390 (-90) */
-  mock_key_event_count = 0;
-  mock_now_ms = 70;
-  mock_enqueue_ptp_packet(0x03, 255, 400, 0x03, 645, 400, 0, 0, 0, 2, false);
+  /* 2. Contract span from 500 to 380 (-120, simulating pinch-in) while moving downward:
+   * Finger 0 moves to (260, 432), Finger 1 moves to (640, 432) -> centroid (450, 432), dy = +72 */
+  mock_rel_event_count = 0;
+  mock_now_ms = 16;
+  mock_enqueue_ptp_packet(0x03, 260, 432, 0x03, 640, 432, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
-  assert(mock_key_event_count == 1);
-  assert(mock_key_events[0].code == INPUT_BTN_6 && mock_key_events[0].value == 1);
-  assert(test_data.pinch_out_release_work.scheduled == true);
-  assert(test_data.pinch_out_release_work.delay_ms == 25);
+  assert(mock_key_event_count == 0); /* Still zero key emissions */
+  assert(mock_rel_event_count == 1);
+  assert(mock_rel_events[0].code == INPUT_REL_WHEEL);
+  /* Net delta accumulated: remaining from previous (-16) + 72 = 56 -> 56 / 24 = 2 notches */
+  assert(mock_rel_events[0].value == 2);
 
-  /* Execute release at t = 95 ms */
-  mock_now_ms = 95;
-  mock_step_work(&test_data.pinch_out_release_work);
-  assert(mock_key_event_count == 2);
-  assert(mock_key_events[1].code == INPUT_BTN_6 && mock_key_events[1].value == 0);
+  /* 3. Pure symmetric pinch expansion in place with stationary centroid (450, 432):
+   * Finger 0 moves to (150, 432), Finger 1 moves to (750, 432) -> span expands by 220, dx=0, dy=0 */
+  mock_rel_event_count = 0;
+  mock_now_ms = 24;
+  mock_enqueue_ptp_packet(0x03, 150, 432, 0x03, 750, 432, 0, 0, 0, 2, false);
+  mock_step_work(&test_data.work);
+  assert(mock_key_event_count == 0);
+  assert(mock_rel_event_count == 0); /* No centroid movement -> no scroll */
+
+  /* 4. Release both fingers */
+  mock_now_ms = 40;
+  mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+  mock_step_work(&test_data.work);
+
+  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
+  assert(test_data.gesture_max_fingers == 0);
+  assert(mock_key_event_count == 0); /* Scrolled -> no right click */
 }
 
 static void test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard(void) {
@@ -1113,7 +1145,7 @@ static void test_discontinuity_jump_filter_prevents_teleportation(void) {
   assert(test_data.prev_x0 == 700);
 }
 
-static void test_pinch_zoom_dropout_no_freeze(void) {
+static void test_2f_scroll_dropout_and_liftoff_no_freeze(void) {
   mock_reset();
 
   /* Touch 2 fingers at (300, 400) and (600, 400) */
@@ -1121,25 +1153,24 @@ static void test_pinch_zoom_dropout_no_freeze(void) {
   mock_enqueue_ptp_packet(0x03, 300, 400, 0x03, 600, 400, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
 
-  /* Spread fingers to (210, 400) and (690, 400) (+180 span) */
+  /* Move fingers to scroll (dy = -50) */
   mock_now_ms = 10;
-  mock_enqueue_ptp_packet(0x03, 210, 400, 0x03, 690, 400, 0, 0, 0, 2, false);
+  mock_enqueue_ptp_packet(0x03, 300, 350, 0x03, 600, 350, 0, 0, 0, 2, false);
   mock_step_work(&test_data.work);
-  assert(test_data.two_finger_mode == TWO_FINGER_PINCH);
+  assert(test_data.two_finger_mode == TWO_FINGER_SCROLL);
 
   /* Finger 1 drops confidence (0x02 instead of 0x03) near edge */
   mock_now_ms = 20;
-  mock_enqueue_ptp_packet(0x03, 200, 400, 0x02, 700, 400, 0, 0, 0, 1, false);
+  mock_enqueue_ptp_packet(0x03, 300, 330, 0x02, 600, 330, 0, 0, 0, 1, false);
   mock_step_work(&test_data.work);
-
-  /* Must cleanly terminate pinch mode and release INPUT_BTN_5 */
-  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
 
   /* All fingers lift */
   mock_now_ms = 35;
   mock_enqueue_ptp_packet(0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
   mock_step_work(&test_data.work);
+  assert(test_data.two_finger_mode == TWO_FINGER_IDLE);
   assert(test_data.gesture_max_fingers == 0);
+  assert(mock_key_event_count == 0);
 }
 
 static void test_tap_release_handler_does_not_abort_active_drag(void) {
@@ -1318,6 +1349,7 @@ static void test_independent_touch_outside_landing_zone_clears_tap_history(void)
 
 int main(void) {
   test_i2c_32_byte_read_and_6_packet_cap();
+  test_irq_asserted_reschedules_at_ble_frame_ms();
   test_ble_8ms_coalescing_and_stranded_flush();
   test_confidence_and_palm_edge_rejection();
   test_gap_reanchoring_and_spike_recovery();
@@ -1330,14 +1362,14 @@ int main(void) {
   test_physical_clickpad_zones_and_liftoff_before_release();
   test_2f_tap_with_settling_jitter();
   test_2f_natural_scroll_aggregated_in_8ms_frame();
-  test_2f_pinch_to_zoom_in_and_out_rapid();
+  test_2f_scroll_with_changing_span_no_pinch();
   test_1f_to_2f_grace_and_2f_to_1f_liftoff_guard();
   test_3f_tap_and_swipes();
   test_3f_swipe_liftoff_only_releases_active_button_and_does_not_double_release();
   test_double_tap_offset_no_cursor_jump_and_enters_drag();
   test_double_tap_without_liftoff_packet_no_cursor_jump();
   test_discontinuity_jump_filter_prevents_teleportation();
-  test_pinch_zoom_dropout_no_freeze();
+  test_2f_scroll_dropout_and_liftoff_no_freeze();
   test_stationary_jitter_suppression();
   test_3f_gestures_disabled_by_default();
   test_3f_swipe_when_disabled_does_not_trigger_middle_click();

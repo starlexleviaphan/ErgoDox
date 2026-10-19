@@ -18,11 +18,16 @@ def test_dongle_zip_button_behaviors():
     ]:
         with open(path, "r", encoding="utf-8") as f:
             overlay = f.read()
-        assert "INPUT_BTN_5" in overlay, f"Missing INPUT_BTN_5 in {path}"
-        assert "INPUT_BTN_6" in overlay, f"Missing INPUT_BTN_6 in {path}"
         assert "INPUT_BTN_MIDDLE" in overlay, f"Missing INPUT_BTN_MIDDLE in {path}"
-        assert "&kp LC(EQUAL)" in overlay, f"Missing Zoom In binding in {path}"
-        assert "&kp LC(MINUS)" in overlay, f"Missing Zoom Out binding in {path}"
+        assert "INPUT_BTN_3" in overlay, f"Missing INPUT_BTN_3 in {path}"
+        assert "INPUT_BTN_4" in overlay, f"Missing INPUT_BTN_4 in {path}"
+        assert "&mkp MB4" in overlay, f"Missing MB4 binding in {path}"
+        assert "&mkp MB5" in overlay, f"Missing MB5 binding in {path}"
+        assert "INPUT_BTN_5" not in overlay, f"Found unexpected INPUT_BTN_5 in {path}"
+        assert "INPUT_BTN_6" not in overlay, f"Found unexpected INPUT_BTN_6 in {path}"
+        assert "&kp LC(EQUAL)" not in overlay, f"Found unexpected Zoom In binding in {path}"
+        assert "&kp LC(MINUS)" not in overlay, f"Found unexpected Zoom Out binding in {path}"
+        assert "&kp LG(" not in overlay, f"Found unexpected modifier binding in {path}"
 
 
 def test_dongle_separate_mod_release():
